@@ -9,7 +9,7 @@
 #include <OneWire.h>           // OneWire communication library for DS18B20
 #include <DallasTemperature.h> // DS18B20 library
 #include "time.h"
-#include "credentials.h"
+
 
 TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 
@@ -29,13 +29,15 @@ const int ledChannel = 0;
 const int resolution = 8;
 int TFTBrightness = 255; // 0-255
 
+
 // Define settings
-const char ssid[]     = "_SSID_"; // WiFi SSID
-const char pass[]     = "_PWD_"; // WiFi password
-const char ssid2[]     = "_SSID2_"; // WiFi SSID
-const char pass2[]     = "_PWD2_"; // WiFi password
-const char domain[]   = "_DOMAIN_";  // domain.tmep.cz
-const char guid[]     = "_GUID_"; // mojemereni
+// const char ssid[]     = "---ssid---"; // WiFi SSID
+// const char pass[]     = "---password---"; // WiFi password
+// const char ssid2[]     = "---ssid2---"; // WiFi SSID
+// const char pass2[]     = "---password2---"; // WiFi password
+// const char domain[]   = "---domain---";  // domain.tmep.cz
+// const char guid[]     = "---guid---"; // mojemereni
+#include "credentials.h"
 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
@@ -105,6 +107,41 @@ void setup()
     tft.setRotation(0);
     tft.fillScreen(TFT_BLUE);  
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
+
+  // Connect to the WiFi
+    tft.drawCentreString("Connecting to", tft.width()/2, 35, 4);
+    
+    WiFi.begin(ssid, pass); //Suzand
+    tft.drawCentreString(String(ssid), tft.width()/2, 60, 4);
+    Serial.printf("Connecting to %s\n", ssid);
+
+    int mil_start = millis();
+    while (WiFi.status() != WL_CONNECTED) {
+        if(millis()-mil_start>20000)
+        {
+            break;
+            connected = false;
+
+        }
+        else if(millis()-mil_start>10000)
+        {
+            WiFi.begin(ssid2, pass2); //Technika
+            tft.drawCentreString(String(ssid2), tft.width()/2, 60, 4);
+            Serial.printf("Connecting to %s\n", ssid2);
+        }
+        
+    }
+
+
+    Serial.println();
+    Serial.println(F("WiFi connected"));
+    Serial.print("IP address: "); Serial.println(WiFi.localIP());
+    Serial.println();
+ 
+    sensors.begin();
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+
     gridLight();
 }
 
