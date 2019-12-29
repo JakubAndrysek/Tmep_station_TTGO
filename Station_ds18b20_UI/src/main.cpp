@@ -93,6 +93,25 @@ String dwoDigit(int time)
 //String time = String(tm.tm_hour) + ":" + String(tm.tm_min) + ":" + String(tm.tm_sec);
 //tft.drawCentreString(time, tft.width()/2, 12, 4);
 
+float minF(float _now, float _min)
+{
+    if(_now < _min)
+    {
+        return _now;
+    }
+    return _min;
+}
+
+float maxF(float _now, float _max)
+{
+    if(_now > _max)
+    {
+        return _now;
+    }
+    return _max;
+}
+
+
 void setup()
 {
     Serial.begin(115200);
@@ -150,6 +169,8 @@ void loop()
     {
         float now;
         float last;
+        float min;
+        float max;
     }tempIn, tempOut;
 
     struct Time
@@ -174,6 +195,9 @@ void loop()
     sensors.requestTemperatures(); // Send the command to get temperatures
     tempIn.last = 0;
     tempOut.last = 0;
+    tempIn.min = tempIn.max = sensors.getTempC(TempIn);
+    tempOut.min = tempOut.max = sensors.getTempC(TempOut);
+    
     
 
     while(run)
@@ -210,17 +234,23 @@ void loop()
             
             //Vypis na display
             String time = dwoDigit(tm.tm_hour) + ":" + dwoDigit(tm.tm_min) + ":" + dwoDigit(tm.tm_sec);
-            tft.drawCentreString(time, tft.width()/2, 4, 4);
+            tft.drawCentreString(time, tft.width()/2, 5, 4);
 
             if (tempIn.last!=tempIn.now)
             {
-                tft.drawString(String(tempIn.now), 5, 70, 6);
+                tempIn.min = minF(tempIn.now, tempIn.min);
+                tempIn.max = minF(tempIn.now, tempIn.max);
+                
+                tft.drawString(String(tempIn.now), 5, 50, 6);
                 tempIn.last = tempIn.now;
             }
 
             if (tempOut.last!=tempOut.now)
             {
-                tft.drawString(String(tempOut.now), 5, 170, 6);
+                tempOut.min = minF(tempOut.now, tempOut.min);
+                tempOut.max = minF(tempOut.now, tempOut.max);
+
+                tft.drawString(String(tempOut.now), 5, 150, 6);
                 tempOut.last = tempOut.now;
             }
 
