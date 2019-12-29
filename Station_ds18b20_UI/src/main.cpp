@@ -20,8 +20,8 @@ TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature sensor 
 DallasTemperature sensors(&oneWire);
-DeviceAddress sensor1 = { 0x28, 0x1E, 0x77, 0x4A, 0xA, 0x0, 0x0, 0xFB };
-DeviceAddress sensor2 = { 0x28, 0xFF, 0x27, 0xC8, 0x43, 0x16, 0x4, 0x36 };
+DeviceAddress TempIn = { 0x28, 0x1E, 0x77, 0x4A, 0xA, 0x0, 0x0, 0xFB };
+DeviceAddress TempOut = { 0x28, 0xFF, 0x27, 0xC8, 0x43, 0x16, 0x4, 0x36 };
 // Set display brightness
 const int ledPin = 4;  
 const int freq = 5000;
@@ -39,11 +39,10 @@ int TFTBrightness = 255; // 0-255
 // const char guid[]     = "---guid---"; // mojemereni
 #include "credentials.h"
 
+//NTPServer setup 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
-
-const byte sleepInMinutes = 1; // How often send data to the server. In minutes 
  
 bool ones = true;
 bool connected  = true;
@@ -159,39 +158,42 @@ void loop()
         int last;
     }timeTFT, timeDis;  
 
-    enum Theme
-    {
-        None,
-        Light,
-        Dark
-    };
-
-    Theme lastTheme = None, nowTheme;
     
     struct tm tm;
+    getLocalTime(&tm);
 
     bool run = true;
   
     int poc1 = 0;
     int poc2 = 0;   
-    int hour = 5;
-    int hourLast = 4;
+    int hourLast = 0;
 
     timeTFT.last = 990;     
-    timeDis.last = millis();       
-
-    tft.drawCentreString("Ahoj", tft.width()/2, 50, 4);
+    timeDis.last = millis();    
+    
+    sensors.requestTemperatures(); // Send the command to get temperatures
+    tempIn.last = 0;
+    tempOut.last = 0;
+    
 
     while(run)
     {
+        sensors.requestTemperatures(); // Send the command to get temperatures
+
+        
         timeTFT.now  = millis();     
-        timeDis.now = millis();  
+        timeDis.now = millis(); 
+
+        tempIn.now = sensors.getTempC(TempIn);
+        tempOut.now = sensors.getTempC(TempOut); 
+        
+        getLocalTime(&tm);        
         
         if((timeDis.now-timeDis.last)>1000)
         {  
-            if(hour != hourLast)
+            if(tm.tm_hour != hourLast)
             {
-                if ((hour > 21) || (hour < 7))
+                if ((tm.tm_hour > 21) || (tm.tm_hour < 7))
                 {
                     TFTBrightness = 70;
                     ledcWrite(ledChannel, TFTBrightness);
@@ -203,12 +205,24 @@ void loop()
                     ledcWrite(ledChannel, TFTBrightness);
                     gridLight();
                 }
-
             }
-            hourLast = hour;
+            hourLast = tm.tm_hour;
             
-            String time = dwoDigit(2) + ":" + dwoDigit(15) + ":" + dwoDigit(millis());
+            //Vypis na display
+            String time = dwoDigit(tm.tm_hour) + ":" + dwoDigit(tm.tm_min) + ":" + dwoDigit(tm.tm_sec);
             tft.drawCentreString(time, tft.width()/2, 4, 4);
+
+            if (tempIn.last!=tempIn.now)
+            {
+                tft.drawString(String(tempIn.now), 5, 70, 6);
+                tempIn.last = tempIn.now;
+            }
+
+            if (tempOut.last!=tempOut.now)
+            {
+                tft.drawString(String(tempOut.now), 5, 170, 6);
+                tempOut.last = tempOut.now;
+            }
 
 
             timeDis.last = timeDis.now;
@@ -218,10 +232,11 @@ void loop()
 
         if((timeTFT.now-timeTFT.last)>15*MILLIS)
         {
+
+
+
             timeTFT.last = timeTFT.now;        
             poc2++;
-            hour = 23;
-            hourLast = 22;
             
         } 
     }
