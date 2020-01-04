@@ -1,3 +1,12 @@
+/*/////////////////////////////////////////////////////////////////////////////////////////////////
+//  Name:           Station_ds18b20_UI
+//  Description:    This is an internet weather station built in TTGO T-Display-ESP32.
+                    The station displays the time, indoor and outdoor temperature + sends 
+                    the actual temperature on the TMEP.CZ server.
+//  Author:         Kuba Andrysek
+//  Website:        https://kubaandrysek.cz/
+////////////////////////////////////////////////////////////////////////////////////////////////*/
+
 #include <TFT_eSPI.h> 
 #include <SPI.h>
 #include "WiFi.h"
@@ -115,7 +124,7 @@ float maxF(float _now, float _max)
 void setup()
 {
     Serial.begin(115200);
-    Serial.println("Last update 2019-12-2");
+    Serial.println("Last update 2020-1-4");
     Serial.println("Start");
     ledcSetup(ledChannel, freq, resolution);
     ledcAttachPin(ledPin, ledChannel);
@@ -127,7 +136,7 @@ void setup()
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
 
   // Connect to the WiFi
-    tft.drawCentreString("Connecting to", tft.width()/2, 35, 4);
+    tft.drawCentreString("Connecting", tft.width()/2, 35, 4);
     
     WiFi.begin(ssid, pass); //Suzand
     tft.drawCentreString(String(ssid), tft.width()/2, 60, 4);
@@ -188,6 +197,7 @@ void loop()
     int poc1 = 0;
     int poc2 = 0;   
     int hourLast = 0;
+    int mdayLast = 0;
 
     timeTFT.last = 990;     
     timeDis.last = millis();    
@@ -215,43 +225,86 @@ void loop()
         
         if((timeDis.now-timeDis.last)>1000)
         {  
+            //Set theme
             if(tm.tm_hour != hourLast)
             {
                 if ((tm.tm_hour > 21) || (tm.tm_hour < 7))
                 {
+                    //Dark
                     TFTBrightness = 70;
                     ledcWrite(ledChannel, TFTBrightness);
                     gridDark();
                 }
                 else
                 {
+                    //Light
                     TFTBrightness = 255;
                     ledcWrite(ledChannel, TFTBrightness);
                     gridLight();
                 }
             }
             hourLast = tm.tm_hour;
-            
-            //Vypis na display
-            String time = dwoDigit(tm.tm_hour) + ":" + dwoDigit(tm.tm_min) + ":" + dwoDigit(tm.tm_sec);
-            tft.drawCentreString(time, tft.width()/2, 5, 4);
 
+
+            //Reset min/max values at 12pm
+            if (tm.tm_mday != mdayLast)
+            {
+                
+                tempIn.min = tempIn.now;
+                tempIn.max = tempIn.now;                
+                tempOut.min = tempOut.now;
+                tempOut.max = tempOut.now;
+
+                mdayLast = tm.tm_mday;
+            }
+            
+            //Print time
+            String time = dwoDigit(tm.tm_hour) + ":" + dwoDigit(tm.tm_min) + ":" + dwoDigit(tm.tm_sec);
+            tft.drawCentreString(time, tft.width()/2, 4, 4);
+
+            //Print IN temperatures
             if (tempIn.last!=tempIn.now)
             {
-                tempIn.min = minF(tempIn.now, tempIn.min);
-                tempIn.max = minF(tempIn.now, tempIn.max);
-                
+                //Actual   
                 tft.drawString(String(tempIn.now), 5, 50, 6);
                 tempIn.last = tempIn.now;
+
+                //Min - left
+                tempIn.min = minF(tempIn.now, tempIn.min);                
+                tft.drawString((String(tempIn.min)), 5, 115, 4);
+                tft.drawLine(35, 92,  35, 110, TFT_WHITE);
+                tft.drawLine(35, 110, 30, 105, TFT_WHITE);
+                tft.drawLine(35, 110, 40, 105, TFT_WHITE);
+                tft.fillRoundRect(0, 135, tft.width(), 10, 0, TFT_BLACK);
+
+                //Max - right
+                tempIn.max = maxF(tempIn.now, tempIn.max);
+                tft.drawString((String(tempIn.max)), 70, 90, 4);
+                tft.drawLine(100, 117, 100, 132, TFT_WHITE);
+                tft.drawLine(100, 117, 95,  122, TFT_WHITE);
+                tft.drawLine(100, 117, 105, 122, TFT_WHITE);                
             }
 
+            //Print OUT temperatures
             if (tempOut.last!=tempOut.now)
             {
-                tempOut.min = minF(tempOut.now, tempOut.min);
-                tempOut.max = minF(tempOut.now, tempOut.max);
-
+                //Actual
                 tft.drawString(String(tempOut.now), 5, 150, 6);
                 tempOut.last = tempOut.now;
+                
+                //Min - left
+                tempOut.min = minF(tempOut.now, tempOut.min);                
+                tft.drawString((String(tempOut.min)), 5, 215, 4);
+                tft.drawLine(35, 192, 35, 210, TFT_WHITE);
+                tft.drawLine(35, 210, 30, 205, TFT_WHITE);
+                tft.drawLine(35, 210, 40, 205, TFT_WHITE);
+
+                //Max - right
+                tempOut.max = maxF(tempOut.now, tempOut.max);
+                tft.drawString((String(tempOut.max)), 70, 190, 4);
+                tft.drawLine(100, 217, 100, 235, TFT_WHITE);
+                tft.drawLine(100, 217, 95,  222, TFT_WHITE);
+                tft.drawLine(100, 217, 105, 222, TFT_WHITE);                
             }
 
 
@@ -260,10 +313,52 @@ void loop()
         }
 
 
-        if((timeTFT.now-timeTFT.last)>15*MILLIS)
+        if((timeTFT.now-timeTFT.last)>15*MILLIS) //time is in seconds (15)
         {
 
+            // Connect to the HOST and send data via GET method
+            WiFiClient client; // Use WiFiClient class to create TCP connections
+            
+            char host[50];            // Joining two chars is little bit difficult. Make new array, 50 bytes long
+            strcpy(host, domain);     // Copy /domain/ in to the /host/
+            strcat(host, ".tmep.cz"); // Add ".tmep.cz" at the end of the /host/. /host/ is now "/domain/.tmep.cz"
+            
+            Serial.print("Connecting to "); Serial.println(host);
+            if (!client.connect(host, 80)) {
+                // If you didn't get a connection to the server
+                Serial.println("Connection failed");
+                // Blink 3 times when host connection error
+                delay(1000);
+                return;
+            }
+            Serial.println(F("Client connected"));
 
+            // Make an url. We need: /?guid=t
+            String url = "/?";
+                    url += guid;
+                    url += "=";
+                    url += tempOut.now;
+                    url += "&humV=";
+                    url += tempIn.now;
+            Serial.print("Requesting URL: "); Serial.println(url);
+            
+            // Make a HTTP GETrequest.
+            client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                        "Host: " + host + "\r\n" + 
+                        "Connection: close\r\n\r\n");
+            
+            
+            // Workaroud for timeout
+            unsigned long timeout = millis();
+            while (client.available() == 0) {
+                if (millis() - timeout > 5000) {
+                    Serial.println(F(">>> Client Timeout !"));
+                    client.stop();
+                    delay(1000);
+                    return;
+                }
+            }            
+            Serial.println();
 
             timeTFT.last = timeTFT.now;        
             poc2++;
