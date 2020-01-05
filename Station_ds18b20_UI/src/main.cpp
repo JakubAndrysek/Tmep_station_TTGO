@@ -55,6 +55,7 @@ const int   daylightOffset_sec = 3600;
  
 bool ones = true;
 bool connected  = true;
+int color = TFT_WHITE;
 
 void gridLight()
 {
@@ -63,18 +64,18 @@ void gridLight()
     tft.fillRoundRect(0,0, tft.width(), 30, 8, TFT_BLUE); 
     tft.fillRoundRect(0,40, tft.width(), 95, 8, TFT_BLUE);
     tft.fillRoundRect(0,145, tft.width(), 95, 8, TFT_BLUE); 
-    delay(5000) ;
+    color = TFT_WHITE;
 
 }
 
 void gridDark()
 {
     tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.fillRoundRect(0,0, tft.width(), 30, 8, TFT_BLACK); 
-    tft.fillRoundRect(0,50, tft.width(), 150, 8, TFT_BLACK);
-    tft.fillRoundRect(0,180, tft.width(), tft.height(), 8, TFT_BLACK);
-   
+    tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
+    tft.fillRoundRect(0,0, tft.width(), 30, 8, TFT_DARKGREY); 
+    tft.fillRoundRect(0,40, tft.width(), 95, 8, TFT_DARKGREY);
+    tft.fillRoundRect(0,145, tft.width(), 95, 8, TFT_DARKGREY);
+    color = TFT_BLACK;
 }
 
 
@@ -223,17 +224,19 @@ void loop()
         
         getLocalTime(&tm);        
         
-        if((timeDis.now-timeDis.last)>1000)
+        if((timeDis.now-timeDis.last)>1*MILLIS) //time is in seconds (15)
         {  
             //Set theme
             if(tm.tm_hour != hourLast)
             {
-                if ((tm.tm_hour > 21) || (tm.tm_hour < 7))
+                if ((tm.tm_hour >= 21) || (tm.tm_hour <= 7))
                 {
                     //Dark
-                    TFTBrightness = 70;
+                    TFTBrightness = 30;
                     ledcWrite(ledChannel, TFTBrightness);
                     gridDark();
+                    tempIn.last = 0;
+                    tempOut.last = 0;
                 }
                 else
                 {
@@ -241,6 +244,8 @@ void loop()
                     TFTBrightness = 255;
                     ledcWrite(ledChannel, TFTBrightness);
                     gridLight();
+                    tempIn.last = 0;
+                    tempOut.last = 0;
                 }
             }
             hourLast = tm.tm_hour;
@@ -272,17 +277,17 @@ void loop()
                 //Min - left
                 tempIn.min = minF(tempIn.now, tempIn.min);                
                 tft.drawString((String(tempIn.min)), 5, 115, 4);
-                tft.drawLine(35, 92,  35, 110, TFT_WHITE);
-                tft.drawLine(35, 110, 30, 105, TFT_WHITE);
-                tft.drawLine(35, 110, 40, 105, TFT_WHITE);
+                tft.drawLine(35, 92,  35, 110, color);
+                tft.drawLine(35, 110, 30, 105, color);
+                tft.drawLine(35, 110, 40, 105, color);
                 tft.fillRoundRect(0, 135, tft.width(), 10, 0, TFT_BLACK);
 
                 //Max - right
                 tempIn.max = maxF(tempIn.now, tempIn.max);
                 tft.drawString((String(tempIn.max)), 70, 90, 4);
-                tft.drawLine(100, 117, 100, 132, TFT_WHITE);
-                tft.drawLine(100, 117, 95,  122, TFT_WHITE);
-                tft.drawLine(100, 117, 105, 122, TFT_WHITE);                
+                tft.drawLine(100, 117, 100, 132, color);
+                tft.drawLine(100, 117, 95,  122, color);
+                tft.drawLine(100, 117, 105, 122, color);                
             }
 
             //Print OUT temperatures
@@ -295,16 +300,16 @@ void loop()
                 //Min - left
                 tempOut.min = minF(tempOut.now, tempOut.min);                
                 tft.drawString((String(tempOut.min)), 5, 215, 4);
-                tft.drawLine(35, 192, 35, 210, TFT_WHITE);
-                tft.drawLine(35, 210, 30, 205, TFT_WHITE);
-                tft.drawLine(35, 210, 40, 205, TFT_WHITE);
+                tft.drawLine(35, 192, 35, 210, color);
+                tft.drawLine(35, 210, 30, 205, color);
+                tft.drawLine(35, 210, 40, 205, color);
 
                 //Max - right
                 tempOut.max = maxF(tempOut.now, tempOut.max);
                 tft.drawString((String(tempOut.max)), 70, 190, 4);
-                tft.drawLine(100, 217, 100, 235, TFT_WHITE);
-                tft.drawLine(100, 217, 95,  222, TFT_WHITE);
-                tft.drawLine(100, 217, 105, 222, TFT_WHITE);                
+                tft.drawLine(100, 217, 100, 235, color);
+                tft.drawLine(100, 217, 95,  222, color);
+                tft.drawLine(100, 217, 105, 222, color);                
             }
 
 
@@ -313,7 +318,7 @@ void loop()
         }
 
 
-        if((timeTFT.now-timeTFT.last)>15*MILLIS) //time is in seconds (15)
+        if((timeTFT.now-timeTFT.last)>60*MILLIS) //time is in seconds (15)
         {
 
             // Connect to the HOST and send data via GET method
